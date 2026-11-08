@@ -50,6 +50,9 @@ button.gr{background:#ececec;border-color:#dcdcdc;color:#2b2622;font-weight:600}
 ul,ol{padding-left:22px;margin:6px 0}
 li{margin:4px 0}
 .hide{display:none}
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:10px}
+.days button{padding:9px 0;font-size:13px;min-width:0}
+.days button.on{background:var(--ac2);border-color:var(--ac);font-weight:600}
 .seg{display:flex;gap:8px;margin:6px 0 12px}
 .seg button{flex:1;padding:12px;font-weight:700;font-size:17px}
 .seg button.on{background:#fbe27a;border-color:#f1cc45;color:var(--on)}
@@ -121,7 +124,7 @@ function allA(){return A.concat(R.filter(isFam),S.custom.filter(function(r){retu
 function okA(r){return miss(r).length===0}
 function bp(k){return S.link[k]&&S.apl[k]?S.apl[k]:S.plan[k]}
 function canLink(r,s){return s<S.per&&isFam(r)&&r.a<=S.age}
-function find(id){return all().concat(A,S.custom).filter(function(r){return r.id===id})[0]}
+function find(id){if(typeof id==="string"&&id.slice(0,2)==="t:")return {id:id,isText:1,e:"✏️",n:id.slice(2),i:[],s:[],a:99};return all().concat(A,S.custom).filter(function(r){return r.id===id})[0]}
 function have(k){return S.pantry.some(function(p){return p.indexOf(k)>-1||k.indexOf(p)>-1})}
 function miss(r){return r.c?[]:r.k.filter(function(k){return !have(k)})}
 function ok(r){return r.a<=S.age&&miss(r).length===0}
@@ -317,17 +320,16 @@ function prepList(){
   });
   if(!ids.length)return '<div class="card mu">Nothing planned yet.</div>';
   ids.sort(function(x,y){return cnt[y]-cnt[x]});
-  return '<div class="card"><b>Prep list for the week</b>'+ids.map(function(id){var r=find(id);return r?'<div style="margin-top:10px"><b>'+esc(r.e+" "+r.n)+' ×'+cnt[id]+'</b><ul>'+r.i.map(li).join("")+'</ul></div>':""}).join("")+'</div>';
+  return '<div class="card"><b>Prep list for the week</b>'+ids.map(function(id){var r=find(id);return r&&!r.isText?'<div style="margin-top:10px"><b>'+esc(r.e+" "+r.n)+' ×'+cnt[id]+'</b><ul>'+r.i.map(li).join("")+'</ul></div>':""}).join("")+'</div>';
 }
 function planB(){
   var h='<div class="row" style="margin-bottom:10px"><div class="pills" style="flex:1;margin:0"><button class="'+(UI.view==="day"?"on":"")+'" onclick="UI.view=\'day\';render()">Day</button><button class="'+(UI.view==="week"?"on":"")+'" onclick="UI.view=\'week\';render()">Week</button></div><button class="gr" onclick="fillBtn(\'b\')">'+(UI.dc==="fillb"?"Tap to replace":"Auto-fill week")+'</button></div>';
   if(UI.view==="day"){
-    h+='<div class="pills">'+DAYS.map(function(d,i){return '<button class="'+(UI.day===i?"on":"")+'" onclick="UI.day='+i+';render()">'+d+'</button>'}).join("")+'</div>';
-    var SL=slots();for(var q=0;q<SL.length;q++){var s=SL[q].i;
-      var key=DAYS[UI.day]+"-"+s,cur=S.plan[key],r=cur&&find(cur);
+    h+=dayPills();
+    var SL=slots();for(var q=0;q<SL.length;q++){var s=SL[q].i,key=DAYS[UI.day]+"-"+s;
       if(S.link[key]&&S.apl[key]){var lr=find(S.apl[key]);h+='<div class="card slot"><small>'+SL[q].l+'</small><b>'+esc(lr.e+" "+lr.n)+'</b><small>Shared with adults</small><button class="link" onclick="UI.open=\''+lr.id+'\';render()">View recipe →</button><button class="link" onclick="unlink(\''+key+'\')">Unlink</button></div>';continue}
-      var opts=all().filter(function(x){return x.a<=S.age&&(ok(x)||x.id===cur)});
-      h+='<div class="card slot"><small>'+SL[q].l+'</small><select onchange="pick(\''+key+'\',this.value)"><option value="">Choose a recipe</option>'+opts.map(function(x){return '<option value="'+x.id+'"'+(x.id===cur?" selected":"")+'>'+esc(x.e+" "+x.n)+'</option>'}).join("")+'</select>'+(r?'<button class="link" onclick="UI.open=\''+r.id+'\';render()">View recipe →</button>':'')+'</div>';
+      var cur=S.plan[key];
+      h+=slotCard("b",key,SL[q].l,s,all().filter(function(x){return x.a<=S.age&&(ok(x)||x.id===cur)}));
     }
   }else{
     h+=DAYS.map(function(d,i){
@@ -341,14 +343,9 @@ function planB(){
 function planA(){
   var h='<div class="row" style="margin-bottom:10px"><div class="pills" style="flex:1;margin:0"><button class="'+(UI.view==="day"?"on":"")+'" onclick="UI.view=\'day\';render()">Day</button><button class="'+(UI.view==="week"?"on":"")+'" onclick="UI.view=\'week\';render()">Week</button></div><button class="gr" onclick="fillBtn(\'a\')">'+(UI.dc==="filla"?"Tap to replace":"Auto-fill week")+'</button></div>';
   if(UI.view==="day"){
-    h+='<div class="pills">'+DAYS.map(function(d,i){return '<button class="'+(UI.day===i?"on":"")+'" onclick="UI.day='+i+';render()">'+d+'</button>'}).join("")+'</div>';
-    for(var s=0;s<3;s++){
-      var key=DAYS[UI.day]+"-"+s,cur=S.apl[key],r=cur&&find(cur);
-      var opts=allA().filter(function(x){return okA(x)||x.id===cur});
-      h+='<div class="card slot"><small>'+MEALN[s]+'</small><select onchange="pickA(\''+key+'\',this.value)"><option value="">Choose a recipe</option>'+opts.map(function(x){return '<option value="'+x.id+'"'+(x.id===cur?" selected":"")+'>'+esc(x.e+" "+x.n)+'</option>'}).join("")+'</select>';
-      if(r){h+='<button class="link" onclick="UI.open=\''+r.id+'\';render()">View recipe →</button>';
-        if(canLink(r,s))h+='<label class="mu"><input type="checkbox" '+(S.link[key]?"checked":"")+' onchange="setLink(\''+key+'\',this.checked)"> Same meal for baby</label>'}
-      h+='</div>';
+    h+=dayPills();
+    for(var s=0;s<3;s++){var key=DAYS[UI.day]+"-"+s,cur=S.apl[key];
+      h+=slotCard("a",key,MEALN[s],s,allA().filter(function(x){return okA(x)||x.id===cur}));
     }
   }else{
     h+=DAYS.map(function(d,i){
@@ -372,6 +369,28 @@ function fillA(){
     else{S.apl[k]=pool[n%pool.length].id;n++}}});
   save();render();
   if(!fam.length)toast("Week filled. No family meal matched your pantry and baby’s age, so nothing is shared yet.");
+}
+function dayPills(){return '<div class="days">'+DAYS.map(function(d,i){return '<button class="'+(UI.day===i?"on":"")+'" onclick="UI.day='+i+';render()">'+d+'</button>'}).join("")+'</div>'}
+function slotCard(w,key,label,s,opts){
+  var m=w==="a"?S.apl:S.plan,cur=m[key],r=cur&&find(cur);
+  var h='<div class="card slot"><small>'+label+'</small><select onchange="pickX(\''+w+'\',\''+key+'\',this.value)"><option value="">Choose a recipe</option>'+opts.map(function(x){return '<option value="'+x.id+'"'+(x.id===cur?" selected":"")+'>'+esc(x.e+" "+x.n)+'</option>'}).join("")+'</select>';
+  h+='<input type="text" placeholder="Or type your own words, e.g. leftovers" value="'+esc(r&&r.isText?r.n:"")+'" onchange="pickT(\''+w+'\',\''+key+'\',this.value)">';
+  if(r&&!r.isText)h+='<button class="link" onclick="UI.open=\''+r.id+'\';render()">View recipe →</button>';
+  if(w==="a"&&r&&canLink(r,s))h+='<label class="mu"><input type="checkbox" '+(S.link[key]?"checked":"")+' onchange="setLink(\''+key+'\',this.checked)"> Same meal for baby</label>';
+  if(r)h+='<button class="link" onclick="two(\'rep'+key+'\',function(){repeatW(\''+w+'\',\''+key+'\')})">'+(UI.dc==="rep"+key?"Tap again to fill every day":"Repeat all week")+'</button>';
+  return h+'</div>';
+}
+function pickX(w,k,v){if(w==="a")pickA(k,v);else pick(k,v)}
+function pickT(w,k,v){
+  v=v.trim();var m=w==="a"?S.apl:S.plan;
+  if(v){m[k]="t:"+v;if(w==="a")delete S.link[k]}
+  else if(m[k]&&m[k].slice(0,2)==="t:")delete m[k];
+  save();render();
+}
+function repeatW(w,key){
+  var m=w==="a"?S.apl:S.plan,s=key.split("-")[1],v=m[key],lk=S.link[key];
+  DAYS.forEach(function(d){var k=d+"-"+s;m[k]=v;if(w==="a"&&lk)S.link[k]=1;else delete S.link[k]});
+  save();toast("Repeated for the whole week");render();
 }
 function pick(k,v){if(v)S.plan[k]=v;else delete S.plan[k];save();render()}
 function fill(){
