@@ -50,6 +50,8 @@ button.gr{background:#ececec;border-color:#dcdcdc;color:#2b2622;font-weight:600}
 ul,ol{padding-left:22px;margin:6px 0}
 li{margin:4px 0}
 .hide{display:none}
+.emos{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;margin-top:6px}
+.emo{font-size:22px;padding:6px 0;line-height:1;min-width:0}
 .days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:10px}
 .days button{padding:9px 0;font-size:13px;min-width:0}
 .days button.on{background:var(--ac2);border-color:var(--ac);font-weight:600}
@@ -106,9 +108,9 @@ var A=[
 {id:"a8",e:"🍝",n:"Tomato and cheese pasta",k:["pasta","tomato","cheese"],i:["200 g pasta","4 tomatoes","½ cup grated cheese","1 tbsp oil"],s:["Cook the pasta.","Simmer the chopped tomatoes in the oil for 10 minutes.","Toss together and top with cheese."]}
 ];
 var S={age:6,per:3,pantry:[],custom:[],plan:{}};
-var UI={tab:"plan",view:"day",day:(new Date().getDay()+6)%7,open:null,adding:false,imp:false,res:null,msg:"",busy:false,qa:false,who:"b",q:"",dc:null,prep:false,src:"web",editId:null};
+var UI={tab:"plan",view:"day",day:(new Date().getDay()+6)%7,open:null,adding:false,imp:false,res:null,msg:"",busy:false,qa:false,who:"b",q:"",dc:null,prep:false,src:"web",editId:null,pic:null};
 try{var raw=localStorage.getItem("bmp1");if(raw){var o=JSON.parse(raw);if(o&&o.pantry)S=o}}catch(e){}
-if(!S.apl)S.apl={};if(!S.link)S.link={};
+if(!S.pics)S.pics={};if(!S.apl)S.apl={};if(!S.link)S.link={};
 if(S.sn===undefined){S.sn=Math.max(0,S.per-3);S.per=Math.min(S.per,3)}if(!S.quick)S.quick=[];
 var tt;
 function toast(m){var e=document.getElementById("toast");e.textContent=m;e.classList.remove("hide");clearTimeout(tt);tt=setTimeout(function(){e.classList.add("hide")},3200)}
@@ -131,6 +133,7 @@ function ok(r){return r.a<=S.age&&miss(r).length===0}
 function thumb(r,cls){return '<div class="'+cls+'">'+(r.img?'<img src="'+r.img+'" alt="">':r.e)+'</div>'}
 
 function init(){
+  applyPics();
   try{localStorage.setItem("bmp_t","1");localStorage.removeItem("bmp_t")}catch(e){toast("Saving is not available here, so changes will be lost when you close the page.")}
   var a="";for(var m=6;m<=24;m++)a+='<option value="'+m+'">'+m+' months</option>';
   document.getElementById("age").innerHTML=a;document.getElementById("age").value=S.age;
@@ -143,7 +146,7 @@ function init(){
 function setAge(v){S.age=+v;save();render()}
 function setPer(v){S.per=+v;save();render()}
 function setSn(v){S.sn=+v;save();render()}
-function tab(t){UI.tab=t;UI.open=null;UI.adding=false;UI.editId=null;UI.imp=false;UI.res=null;UI.msg="";render()}
+function tab(t){UI.pic=null;UI.tab=t;UI.open=null;UI.adding=false;UI.editId=null;UI.imp=false;UI.res=null;UI.msg="";render()}
 
 function render(){
   document.getElementById("who").innerHTML=whoBar();
@@ -169,7 +172,7 @@ function mkBk(){var e=document.getElementById("bk");e.value=JSON.stringify(S);e.
 function restoreBk(){
   var v=document.getElementById("bk").value.trim();
   try{var o=JSON.parse(v);if(!o||!Array.isArray(o.pantry)||!Array.isArray(o.custom))throw 0;
-    o.apl=o.apl||{};o.link=o.link||{};o.plan=o.plan||{};o.quick=o.quick||[];S=o;save();init();toast("Backup restored")}
+    o.pics=o.pics||{};o.apl=o.apl||{};o.link=o.link||{};o.plan=o.plan||{};o.quick=o.quick||[];S=o;save();init();toast("Backup restored")}
   catch(x){toast("That does not look like a backup. Copy the whole text.")}
 }
 function addQ(){var el=document.getElementById("qi"),v=(el.value||"").trim().toLowerCase();if(v&&SUG.indexOf(v)<0&&S.quick.indexOf(v)<0){S.quick.push(v);save()}render()}
@@ -210,7 +213,7 @@ function card(r,m){
 }
 function viewRecipe(){
   var r=find(UI.open);if(!r){UI.open=null;return ""}
-  var h='<button onclick="UI.open=null;render()">← Back</button><h2 style="margin-top:14px"> </h2>'+thumb(r,"big")+'<h1>'+esc(r.n)+'</h1>';
+  var h='<button onclick="UI.open=null;render()">← Back</button><h2 style="margin-top:14px"> </h2>'+thumb(r,"big")+picBtn(r)+'<h1>'+esc(r.n)+'</h1>';
   h+='<h2>Ingredients</h2><ul>'+r.i.map(function(x){return '<li>'+esc(x)+'</li>'}).join("")+'</ul>';
   h+='<h2>Method</h2><ol>'+r.s.map(function(x){return '<li>'+esc(x)+'</li>'}).join("")+'</ol>';
   if(r.c)h+='<button style="margin-top:14px;margin-right:8px" onclick="UI.editId=\''+r.id+'\';UI.tab=\'rec\';UI.adding=true;UI.imp=false;UI.open=null;render()">Edit</button><button style="margin-top:14px" onclick="two(\'v'+r.id+'\',function(){delR(\''+r.id+'\')})">'+(UI.dc==="v"+r.id?"Tap again to delete":"Delete this recipe")+'</button>';
@@ -379,6 +382,46 @@ function slotCard(w,key,label,s,opts){
   if(w==="a"&&r&&canLink(r,s))h+='<label class="mu"><input type="checkbox" '+(S.link[key]?"checked":"")+' onchange="setLink(\''+key+'\',this.checked)"> Same meal for baby</label>';
   if(r)h+='<button class="link" onclick="two(\'rep'+key+'\',function(){repeatW(\''+w+'\',\''+key+'\')})">'+(UI.dc==="rep"+key?"Tap again to fill every day":"Repeat all week")+'</button>';
   return h+'</div>';
+}
+var EMO=["🍠","🥣","🍎","🍐","🥑","🍌","🥕","🎃","🍗","🥩","🐟","🍳","🥞","🍞","🧀","🥦","🍚","🍝","🍲","🥔","🍅","🫐","🍓","🥛","🍇","🍊","🥒","🌽","🥬","🧆","🥪","🌮","🍕","🍜","🥗","🍛","🥧","🧁","🍪","🍰","🫘","🥜","🍉","🍑","🥭","🍍","🥥","🍽️"];
+function applyPics(){R.concat(A).forEach(function(r){var o=S.pics[r.id]||{};if(r.e0===undefined)r.e0=r.e;r.e=o.e||r.e0;if(o.img)r.img=o.img;else delete r.img})}
+function picBtn(r){
+  if(r.isText)return "";
+  var h='<button class="link" style="margin-bottom:8px" onclick="UI.pic=UI.pic===\''+r.id+'\'?null:\''+r.id+'\';render()">'+(UI.pic===r.id?"Close picture options":"Change picture")+'</button>';
+  if(UI.pic!==r.id)return h;
+  h+='<div class="card"><div class="mu">Choose a picture</div><div class="emos">'+EMO.map(function(e){return '<button class="emo" onclick="setPic(\''+r.id+'\',\''+e+'\')">'+e+'</button>'}).join("")+'</div>';
+  h+='<div class="row" style="margin-top:8px"><input type="text" id="pe" placeholder="Or type any emoji" style="flex:1"><button onclick="setPic(\''+r.id+'\',document.getElementById(\'pe\').value)">Use</button></div>';
+  h+='<label class="mu" style="display:block;margin-top:10px">Or upload a photo<input type="file" accept="image/*" onchange="upPic(\''+r.id+'\',this)"></label>';
+  if(r.c&&r.img)h+='<button style="margin-top:8px" onclick="resetPic(\''+r.id+'\')">Remove photo</button>';
+  if(!r.c&&S.pics[r.id])h+='<button style="margin-top:8px" onclick="resetPic(\''+r.id+'\')">Reset to original</button>';
+  return h+'</div>';
+}
+function setPic(id,e){
+  e=(e||"").trim();if(!e)return;
+  var r=find(id);if(!r||r.isText)return;
+  if(r.c){r.e=em(e);delete r.img}else{S.pics[id]={e:em(e)};applyPics()}
+  if(save())toast("Picture changed");render();
+}
+function upPic(id,inp){
+  var f=inp.files[0];if(!f)return;
+  var r=find(id);if(!r)return;
+  var fr=new FileReader();
+  fr.onload=function(){var im=new Image();
+    im.onload=function(){
+      var sc=Math.min(1,480/Math.max(im.width,im.height)),c=document.createElement("canvas");
+      c.width=im.width*sc;c.height=im.height*sc;c.getContext("2d").drawImage(im,0,0,c.width,c.height);
+      var u=c.toDataURL("image/jpeg",.7);
+      if(r.c)r.img=u;else{S.pics[id]=Object.assign({},S.pics[id],{img:u});applyPics()}
+      if(save())toast("Picture changed");render();
+    };
+    im.onerror=function(){toast("That file could not be read as a picture.")};
+    im.src=fr.result};
+  fr.readAsDataURL(f);
+}
+function resetPic(id){
+  var r=find(id);if(!r)return;
+  if(r.c)delete r.img;else{delete S.pics[id];applyPics()}
+  save();toast("Picture updated");render();
 }
 function pickX(w,k,v){if(w==="a")pickA(k,v);else pick(k,v)}
 function pickT(w,k,v){
